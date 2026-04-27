@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>欢迎使用优调鞋业库存管理系统</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Microsoft YaHei", 'Segoe UI', sans-serif;
+}
+html, body {
+  height: 100%;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  background-attachment: fixed;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+.login-container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.login-box {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 18px;
+  padding: 40px 30px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  animation: fadeIn 0.6s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.login-box h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 22px;
+  color: #fff;
+}
+.form-item {
+  margin-bottom: 22px;
+}
+.form-item label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.85);
+}
+.form-item input {
+  width: 100%;
+  padding: 14px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+  transition: 0.3s;
+}
+.form-item input:focus {
+  border-color: #4fc3f7;
+  background: rgba(255,255,255,0.18);
+}
+.login-btn {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(90deg, #4fc3f7, #2196f3);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+  box-shadow: 0 4px 15px rgba(79,195,247,0.3);
+}
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79,195,247,0.4);
+}
+
+.sidebar {
+  width: 180px;
+  height: 100vh;
+  background: rgba(15, 12, 41, 0.9);
+  backdrop-filter: blur(10px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding: 25px 12px;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 999;
+  border-right: 1px solid rgba(255,255,255,0.1);
+}
+.sidebar .user-info {
+  padding: 14px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #4fc3f7;
+  margin-bottom: 10px;
+}
+.sidebar a {
+  padding: 13px;
+  text-align: center;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  transition: 0.3s;
+  font-size: 14px;
+}
+.sidebar a:hover {
+  background: linear-gradient(90deg, #4fc3f7, #2196f3);
+  transform: scale(1.03);
+}
+.sidebar .logout {
+  margin-top: auto;
+  background: rgba(244,67,54,0.2);
+  border-color: rgba(244,67,54,0.3);
+}
+.sidebar .logout:hover {
+  background: #f44336;
+}
+
+.content {
+  margin-left: 180px;
+  padding: 35px;
+  min-height: 100vh;
+  font-size: 17px;
+  color: #fff;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+  .sidebar .user-info {
+    width: 100%;
+    margin-bottom: 5px;
+  }
+  .sidebar a {
+    flex: 1;
+    min-width: 90px;
+    padding: 10px 6px;
+    font-size: 13px;
+  }
+  .content {
+    margin-left: 0;
+    margin-top: 170px;
+    padding: 20px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar" id="sidebar">
+  <div class="user-info" id="showUser"></div>
+  <a onclick="openPage('产品登记')">产品登记</a>
+  <a onclick="openPage('入库管理')">入库管理</a>
+  <a onclick="openPage('出库管理')">出库管理</a>
+  <a onclick="openPage('库存查看')">库存查看</a>
+  <a onclick="openPage('人员配置')" id="menuUser" style="display:none">人员配置</a>
+  <a onclick="openPage('表结构查看')" id="menuTable" style="display:none">表结构查看</a>
+  <a class="logout" onclick="logout()">退出登录</a>
+</div>
+
+<div class="login-container" id="loginPage">
+  <div class="login-box">
+    <h2>欢迎使用优调鞋业库存管理系统</h2>
+    <div class="form-item">
+      <label>用户名</label>
+      <input type="text" id="username" placeholder="请输入用户名">
+    </div>
+    <div class="form-item">
+      <label>密码</label>
+      <input type="password" id="password" placeholder="请输入密码">
+    </div>
+    <button class="login-btn" onclick="doLogin()">登录系统</button>
+  </div>
+</div>
+
+<div class="content" id="content"></div>
+
+<script>
+const CSV_PATH = "./ytxy_role.csv";
+
+async function doLogin() {
+  let name = document.getElementById("username").value.trim();
+  let pwd = document.getElementById("password").value.trim();
+  if (!name || !pwd) { alert("请输入账号密码"); return; }
+
+  try {
+    let res = await fetch(CSV_PATH);
+    let text = await res.text();
+    let lines = text.split(/\r?\n/).filter(i => i.trim());
+    let headers = lines[0].split(",");
+    let userList = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      let cols = lines[i].split(",");
+      let obj = {};
+      headers.forEach((h, idx) => {
+        obj[h.trim()] = cols[idx]?.trim() || "";
+      });
+      userList.push(obj);
+    }
+
+    let user = userList.find(u => u.username == name && u.password == pwd);
+    if (!user) { alert("账号或密码错误"); return; }
+
+    localStorage.user = JSON.stringify(user);
+    showSystem(user);
+  } catch (e) {
+    alert("读取ytxy_role.csv失败，请确保文件在同级目录");
+    console.error(e);
+  }
+}
+
+function showSystem(user) {
+  document.getElementById("loginPage").style.display = "none";
+  document.getElementById("sidebar").style.display = "flex";
+  document.getElementById("content").style.display = "block";
+  document.getElementById("showUser").innerText = "欢迎：" + user.username;
+
+  if (user.is_admin == 1) {
+    document.getElementById("menuUser").style.display = "block";
+    document.getElementById("menuTable").style.display = "block";
+  }
+  openPage("首页");
+}
+
+function openPage(title) {
+  document.getElementById("content").innerText = "当前页面：" + title;
+}
+
+function logout() {
+  localStorage.removeItem("user");
+  location.reload();
+}
+
+window.onload = () => {
+  let u = localStorage.user;
+  if (u) showSystem(JSON.parse(u));
+}
+</script>
+</body>
+</html>
