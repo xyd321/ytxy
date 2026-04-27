@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>产品登记</title>
+<style>
+*{box-sizing:border-box;font-family:Microsoft YaHei;margin:0;padding:0;}
+body{padding:20px;background:#f5f7fa;color:#333;}
+h3{margin-bottom:16px;font-size:18px;color:#333;}
+.form{background:#fff;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+.item{margin-bottom:14px;}
+.item label{display:block;margin-bottom:6px;font-size:14px;color:#555;}
+.item input{width:100%;padding:10px;background:#f9f9f9;border:1px solid #ddd;border-radius:6px;color:#333;outline:none;}
+.btn{padding:8px 14px;border:none;border-radius:6px;background:#409eff;color:#fff;cursor:pointer;margin-right:6px;}
+.btn-danger{background:#f56c6c;}
+.table-box{background:#fff;padding:15px;border-radius:12px;display:none;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;}
+th,td{padding:10px;text-align:center;border:1px solid #eee;}
+th{background:#f8f9fa;color:#333;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+<h3>产品登记</h3>
+<div class="form">
+  <div class="item"><label>类型</label><input id="type"></div>
+  <div class="item"><label>颜色</label><input id="color"></div>
+  <div class="item"><label>尺码</label><input id="size"></div>
+  <button class="btn" onclick="save()">保存</button>
+  <button class="btn" onclick="toggleTable()">展开列表</button>
+  <button class="btn btn-danger" onclick="clearEdit()">清空</button>
+</div>
+<div class="table-box" id="tableBox">
+<table><thead><tr><th>序号</th><th>类型</th><th>颜色</th><th>尺码</th><th>登记时间</th><th>操作人员</th><th>操作</th></tr></thead><tbody id="tbody"></tbody></table>
+</div>
+
+<script>
+const GITHUB=parent.GITHUB;
+const FILE="ytxy_type.xlsx";
+let list=[],editIdx=-1,user=JSON.parse(localStorage.getItem("user"))||{};
+
+async function load(){
+  const {data}=await parent.getExcel(FILE);
+  list=data;
+  render();
+}
+
+function render(){
+  let h="";
+  list.forEach((it,i)=>{
+    h+=`<tr><td>${it.序号}</td><td>${it.类型}</td><td>${it.颜色}</td><td>${it.尺码}</td><td>${it.登记时间}</td><td>${it.操作人员}</td><td><button class="btn" onclick="edit(${i})">编辑</button><button class="btn btn-danger" onclick="del(${i})">删除</button></td></tr>`;
+  });
+  document.getElementById("tbody").innerHTML=h;
+}
+
+function toggleTable(){
+  let d=document.getElementById("tableBox");
+  d.style.display=d.style.display=="block"?"none":"block";
+  if(d.style.display=="block")load();
+}
+
+async function save(){
+  let t=document.getElementById("type").value.trim();
+  let c=document.getElementById("color").value.trim();
+  let s=document.getElementById("size").value.trim();
+
+  if(!t||!c||!s)return alert("请填写完整");
+
+  let time=new Date().toLocaleString();
+  let name=user?.name||user?.名字||"未知";
+  
+  const {data,sha}=await parent.getExcel(FILE);
+  list=data;
+
+  // 编辑模式
+  if(editIdx>=0){
+    list[editIdx].类型=t;
+    list[editIdx].颜色=c;
+    list[editIdx].尺码=s;
+    list[editIdx].登记时间=time;
+    list[editIdx].操作人员=name;
+    editIdx=-1;
+    alert("修改成功");
+    await parent.saveExcel(FILE,list,sha);
+    clearEdit();
+    render();
+    return;
+  }
+
+  // ✅ 关键：防重复登记（类型+颜色+尺码 完全相同才拦截）
+  const isExist = list.some(x => 
+    x.类型.trim()===t && 
+    x.颜色.trim()===c && 
+    x.尺码.trim()===s
+  );
+
+  if(isExist){
+    alert("该产品已登记，不允许重复！");
+    return;
+  }
+
+  let id=list.length?Math.max(...list.map(x=>x.序号))+1:1;
+  list.push({
+    序号:id,
+    类型:t,
+    颜色:c,
+    尺码:s,
+    登记时间:time,
+    操作人员:name
+  });
+  
+  await parent.saveExcel(FILE,list,sha);
+  alert("登记成功");
+  clearEdit();
+  render();
+}
+
+function edit(i){
+  editIdx=i;
+  let it=list[i];
+  document.getElementById("type").value=it.类型;
+  document.getElementById("color").value=it.颜色;
+  document.getElementById("size").value=it.尺码;
+}
+
+async function del(i){
+  if(!confirm("确定删除？"))return;
+  const {data,sha}=await parent.getExcel(FILE);
+  list=data;
+  list.splice(i,1);
+  await parent.saveExcel(FILE,list,sha);
+  render();
+}
+
+function clearEdit(){
+  editIdx=-1;
+  document.getElementById("type").value="";
+  document.getElementById("color").value="";
+  document.getElementById("size").value="";
+}
+
+window.onload=load;
+</script>
+</body>
+</html>

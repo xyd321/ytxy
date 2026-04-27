@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>入库管理</title>
+<style>
+*{box-sizing:border-box;font-family:Microsoft YaHei;margin:0;padding:0;}
+body{padding:20px;background:#f5f7fa;color:#333;}
+h3{margin-bottom:16px;font-size:18px;color:#333;}
+.form{background:#fff;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+.item{margin-bottom:14px;}
+.item label{display:block;margin-bottom:6px;font-size:14px;color:#555;}
+.item input{width:100%;padding:10px;background:#f9f9f9;border:1px solid #ddd;border-radius:6px;color:#333;outline:none;}
+.btn{padding:8px 14px;border:none;border-radius:6px;background:#409eff;color:#fff;cursor:pointer;margin-right:6px;}
+.btn-danger{background:#f56c6c;}
+.table-box{background:#fff;padding:15px;border-radius:12px;display:none;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;}
+th,td{padding:10px;text-align:center;border:1px solid #eee;}
+th{background:#f8f9fa;color:#333;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+<h3>入库管理</h3>
+<div class="form">
+  <div class="item"><label>类型</label><input id="type"></div>
+  <div class="item"><label>颜色</label><input id="color"></div>
+  <div class="item"><label>尺码</label><input id="size"></div>
+  <div class="item"><label>箱数</label><input id="box" type="number"></div>
+  <div class="item"><label>每箱双数</label><input id="per" type="number"></div>
+  <button class="btn" onclick="save()">提交入库</button>
+  <button class="btn" onclick="toggleTable()">查看记录</button>
+  <button class="btn btn-danger" onclick="clearEdit()">清空</button>
+</div>
+<div class="table-box" id="tableBox">
+<table><thead><tr><th>序号</th><th>类型</th><th>颜色</th><th>尺码</th><th>箱数</th><th>每箱双数</th><th>总双数</th><th>入库时间</th><th>操作员</th></tr></thead><tbody id="tbody"></tbody></table>
+</div>
+
+<script>
+const RK = "ytxy_rk.xlsx";
+const KC = "ytxy_kc.xlsx";
+const PROD = "ytxy_type.xlsx";
+let user = JSON.parse(localStorage.getItem("user")) || {};
+
+async function loadRK() {
+  const { data } = await parent.getExcel(RK);
+  render(data);
+}
+
+function render(data) {
+  let h = "";
+  data.forEach(it => {
+    h += `<tr><td>${it.序号}</td><td>${it.类型}</td><td>${it.颜色}</td><td>${it.尺码}</td><td>${it.箱数}</td><td>${it.每箱双数}</td><td>${it.总双数}</td><td>${it.入库时间}</td><td>${it.入库操作员名字}</td></tr>`;
+  });
+  document.getElementById("tbody").innerHTML = h;
+}
+
+function toggleTable() {
+  let d = document.getElementById("tableBox");
+  d.style.display = d.style.display == "block" ? "none" : "block";
+  if (d.style.display == "block") loadRK();
+}
+
+async function save() {
+  let t = document.getElementById("type").value.trim();
+  let c = document.getElementById("color").value.trim();
+  let s = document.getElementById("size").value.trim();
+  let box = parseInt(document.getElementById("box").value) || 0;
+  let per = parseInt(document.getElementById("per").value) || 0;
+  let total = box * per;
+
+  if (!t || !c || !s || box <= 0 || per <= 0) return alert("请正确填写");
+
+  // 强制校验：产品必须先登记
+  const { data: prodList } = await parent.getExcel(PROD);
+  const hasProduct = prodList.some(p => 
+    p.类型 === t && p.颜色 === c && p.尺码 === s
+  );
+  if (!hasProduct) {
+    alert("该产品未登记，请先到产品登记页面添加！");
+    return;
+  }
+
+  let time = new Date().toLocaleString();
+  let name = user?.名字 || "未知";
+
+  const rk = await parent.getExcel(RK);
+  const rkData = rk.data;
+  const kc = await parent.getExcel(KC);
+  const kcData = kc.data;
+
+  let id = rkData.length ? Math.max(...rkData.map(x => x.序号)) + 1 : 1;
+  rkData.push({
+    序号: id,
+    类型: t,
+    颜色: c,
+    尺码: s,
+    箱数: box,
+    每箱双数: per,
+    总双数: total,
+    入库时间: time,
+    入库操作员名字: name
+  });
+
+  let item = kcData.find(x => x.类型 === t && x.颜色 === c && x.尺码 === s);
+  if (item) {
+    item.剩余双数 = (parseInt(item.剩余双数) || 0) + total;
+  } else {
+    kcData.push({
+      序号: kcData.length ? Math.max(...kcData.map(x => x.序号)) + 1 : 1,
+      类型: t,
+      颜色: c,
+      尺码: s,
+      剩余双数: total
+    });
+  }
+
+  await parent.saveExcel(RK, rkData, rk.sha);
+  await parent.saveExcel(KC, kcData, kc.sha);
+  alert("入库成功，库存已增加");
+  clearEdit();
+  loadRK();
+}
+
+function clearEdit() {
+  document.getElementById("type").value = "";
+  document.getElementById("color").value = "";
+  document.getElementById("size").value = "";
+  document.getElementById("box").value = "";
+  document.getElementById("per").value = "";
+}
+
+window.onload = loadRK;
+</script>
+</body>
+</html>

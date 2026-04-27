@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>出库管理</title>
+<style>
+*{box-sizing:border-box;font-family:Microsoft YaHei;margin:0;padding:0;}
+body{padding:20px;background:#f5f7fa;color:#333;}
+h3{margin-bottom:16px;font-size:18px;color:#333;}
+.form{background:#fff;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+.item{margin-bottom:14px;}
+.item label{display:block;margin-bottom:6px;font-size:14px;color:#555;}
+.item input{width:100%;padding:10px;background:#f9f9f9;border:1px solid #ddd;border-radius:6px;color:#333;outline:none;}
+.btn{padding:8px 14px;border:none;border-radius:6px;background:#409eff;color:#fff;cursor:pointer;margin-right:6px;}
+.btn-danger{background:#f56c6c;}
+.table-box{background:#fff;padding:15px;border-radius:12px;display:none;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;}
+th,td{padding:10px;text-align:center;border:1px solid #eee;}
+th{background:#f8f9fa;color:#333;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+<h3>出库管理</h3>
+<div class="form">
+  <div class="item"><label>类型</label><input id="type"></div>
+  <div class="item"><label>颜色</label><input id="color"></div>
+  <div class="item"><label>尺码</label><input id="size"></div>
+  <div class="item"><label>箱数</label><input id="box" type="number"></div>
+  <div class="item"><label>总双数</label><input id="total" type="number"></div>
+  <button class="btn" onclick="save()">提交出库</button>
+  <button class="btn" onclick="toggleTable()">查看记录</button>
+  <button class="btn btn-danger" onclick="clearEdit()">清空</button>
+</div>
+<div class="table-box" id="tableBox">
+<table><thead><tr><th>序号</th><th>类型</th><th>颜色</th><th>尺码</th><th>箱数</th><th>总双数</th><th>出库时间</th><th>操作员</th></tr></thead><tbody id="tbody"></tbody></table>
+</div>
+
+<script>
+const CK = "ytxy_ck.xlsx";
+const KC = "ytxy_kc.xlsx";
+const PROD = "ytxy_type.xlsx";
+let user = JSON.parse(localStorage.getItem("user")) || {};
+
+async function loadCK(){
+  const {data} = await parent.getExcel(CK);
+  render(data);
+}
+
+function render(data){
+  let h="";
+  data.forEach(it=>{
+    h+=`<tr><td>${it.序号}</td><td>${it.类型}</td><td>${it.颜色}</td><td>${it.尺码}</td><td>${it.箱数}</td><td>${it.总双数}</td><td>${it.出库时间}</td><td>${it.出库操作员名字}</td></tr>`;
+  });
+  document.getElementById("tbody").innerHTML = h;
+}
+
+function toggleTable(){
+  let d=document.getElementById("tableBox");
+  d.style.display = d.style.display=="block" ? "none" : "block";
+  if(d.style.display=="block") loadCK();
+}
+
+async function save(){
+  let t = document.getElementById("type").value.trim();
+  let c = document.getElementById("color").value.trim();
+  let s = document.getElementById("size").value.trim();
+  let box = parseInt(document.getElementById("box").value)||0;
+  let total = parseInt(document.getElementById("total").value)||0;
+
+  if(!t || !c || !s || box<=0 || total<=0) return alert("请正确填写信息");
+
+  // ==========================
+  // 关键校验：必须是已登记产品
+  // ==========================
+  const { data: prodList } = await parent.getExcel(PROD);
+  const hasProduct = prodList.some(p => 
+    p.类型 === t && p.颜色 === c && p.尺码 === s
+  );
+  if (!hasProduct) {
+    alert("该产品未登记，请先到产品登记页面添加！");
+    return;
+  }
+
+  // 库存判断
+  const ck = await parent.getExcel(CK);
+  const ckData = ck.data;
+  const kc = await parent.getExcel(KC);
+  const kcData = kc.data;
+
+  let kcItem = kcData.find(x=>x.类型==t && x.颜色==c && x.尺码==s);
+  if(!kcItem || (parseInt(kcItem.剩余双数)||0) < total){
+    return alert("库存不足，无法出库");
+  }
+
+  let time = new Date().toLocaleString();
+  let name = user?.名字 || "未知";
+  let id = ckData.length ? Math.max(...ckData.map(x=>x.序号))+1 : 1;
+
+  ckData.push({
+    序号:id,
+    类型:t,
+    颜色:c,
+    尺码:s,
+    箱数:box,
+    总双数:total,
+    出库时间:time,
+    出库操作员名字:name
+  });
+
+  kcItem.剩余双数 = (parseInt(kcItem.剩余双数)||0) - total;
+
+  await parent.saveExcel(CK, ckData, ck.sha);
+  await parent.saveExcel(KC, kcData, kc.sha);
+
+  alert("出库成功，库存已减少");
+  clearEdit();
+  loadCK();
+}
+
+function clearEdit(){
+  document.getElementById("type").value = "";
+  document.getElementById("color").value = "";
+  document.getElementById("size").value = "";
+  document.getElementById("box").value = "";
+  document.getElementById("total").value = "";
+}
+
+window.onload = loadCK;
+</script>
+</body>
+</html>

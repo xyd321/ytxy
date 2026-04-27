@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>库存查看</title>
+<style>
+*{box-sizing:border-box;font-family:Microsoft YaHei;margin:0;padding:0;}
+body{padding:20px;background:#f5f7fa;color:#333;}
+h3{margin-bottom:16px;font-size:18px;color:#333;}
+
+/* 库存编辑弹窗 */
+.modal{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;
+  z-index:999;display:none;
+}
+.modal-box{
+  background:#fff;width:90%;max-width:400px;padding:25px;border-radius:12px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.1);
+}
+.modal-box h4{margin-bottom:15px;font-size:16px;color:#333;}
+.item{margin-bottom:14px;}
+.item label{display:block;margin-bottom:6px;font-size:14px;color:#555;}
+.item input{width:100%;padding:10px;background:#f9f9f9;border:1px solid #ddd;border-radius:6px;color:#333;outline:none;}
+.btn{padding:8px 14px;border:none;border-radius:6px;background:#409eff;color:#fff;cursor:pointer;margin-right:6px;}
+.btn-danger{background:#f56c6c;}
+.btn-close{background:#909399;}
+
+/* 表格 */
+.table-box{background:#fff;padding:15px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;}
+th,td{padding:10px;text-align:center;border:1px solid #eee;}
+th{background:#f8f9fa;color:#333;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+<h3>库存查看</h3>
+
+<!-- 表格 → 只显示数据 + 编辑/删除 -->
+<div class="table-box">
+<table>
+<thead>
+<tr>
+  <th>序号</th>
+  <th>类型</th>
+  <th>颜色</th>
+  <th>尺码</th>
+  <th>剩余双数</th>
+  <th>操作</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+<!-- 编辑弹窗（隐藏） -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <h4>编辑库存</h4>
+    <div class="item"><label>类型</label><input id="e_type" readonly></div>
+    <div class="item"><label>颜色</label><input id="e_color" readonly></div>
+    <div class="item"><label>尺码</label><input id="e_size" readonly></div>
+    <div class="item"><label>剩余双数</label><input id="e_num" type="number"></div>
+    <br>
+    <button class="btn" onclick="saveEdit()">保存</button>
+    <button class="btn btn-close" onclick="closeModal()">取消</button>
+  </div>
+</div>
+
+<script>
+const FILE = "ytxy_kc.xlsx";
+let list = [];
+let editIndex = -1;
+
+// 加载库存列表
+async function load() {
+  try {
+    const { data } = await parent.getExcel(FILE);
+    list = data;
+  } catch (e) {
+    list = [];
+  }
+  render();
+}
+
+// 渲染表格
+function render() {
+  let html = "";
+  list.forEach((item, i) => {
+    html += `
+    <tr>
+      <td>${item.序号}</td>
+      <td>${item.类型}</td>
+      <td>${item.颜色}</td>
+      <td>${item.尺码}</td>
+      <td>${item.剩余双数}</td>
+      <td>
+        <button class="btn" onclick="edit(${i})">编辑</button>
+        <button class="btn btn-danger" onclick="del(${i})">删除</button>
+      </td>
+    </tr>`;
+  });
+  document.getElementById("tbody").innerHTML = html;
+}
+
+// 编辑
+function edit(i) {
+  editIndex = i;
+  let row = list[i];
+  document.getElementById("e_type").value = row.类型;
+  document.getElementById("e_color").value = row.颜色;
+  document.getElementById("e_size").value = row.尺码;
+  document.getElementById("e_num").value = row.剩余双数;
+  document.getElementById("modal").style.display = "flex";
+}
+
+// 保存编辑
+async function saveEdit() {
+  let num = parseInt(document.getElementById("e_num").value) || 0;
+  if (num < 0) return alert("剩余双数不能小于0");
+
+  const { data, sha } = await parent.getExcel(FILE);
+  list = data;
+  list[editIndex].剩余双数 = num;
+  
+  await parent.saveExcel(FILE, list, sha);
+  alert("保存成功！");
+  closeModal();
+  load();
+}
+
+// 删除
+async function del(i) {
+  if (!confirm("确定删除该库存记录吗？")) return;
+  const { data, sha } = await parent.getExcel(FILE);
+  list = data;
+  list.splice(i, 1);
+  await parent.saveExcel(FILE, list, sha);
+  load();
+}
+
+// 关闭弹窗
+function closeModal() {
+  document.getElementById("modal").style.display = "none";
+  editIndex = -1;
+}
+
+window.onload = load;
+</script>
+</body>
+</html>
